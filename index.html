@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Control de Gastos · KSR + JTR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0d1017; --panel:#161b26; --panel2:#1c2230; --line:#2a3242; --line2:#39435a;
+    --text:#e8ecf3; --dim:#8a94a6; --ksr:#4fd6b8; --jtr:#f0a742; --accent:#7c9cff;
+    --madrid:#7c9cff; --asturias:#c98bdb;
+    --display:'Space Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif; --mono:'Space Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased;}
+  #app{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:40px;}
+  input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+  ::selection{background:var(--accent);color:#0d1017;}
+  button{cursor:pointer;font-family:inherit;}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  header{padding:20px 20px 12px;display:flex;justify-content:space-between;align-items:flex-start;}
+  .eyebrow{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-weight:600;font-family:var(--mono);}
+  .month-row{display:flex;align-items:center;gap:4px;margin-top:6px;}
+  h1{font-family:var(--display);font-size:32px;font-weight:700;margin:0;letter-spacing:-.5px;min-width:150px;text-align:center;}
+  .arrow{background:none;border:none;color:var(--dim);font-size:28px;line-height:1;padding:0 6px;font-family:var(--display);}
+  .save-pill{font-size:11px;font-family:var(--mono);transition:opacity .3s;margin-top:6px;min-height:14px;}
+  .save-pill.ok{color:var(--ksr);} .save-pill.err{color:#ff6b6b;} .save-pill.busy{color:var(--dim);}
+
+  .tabs{display:flex;gap:4px;padding:0 16px;margin-bottom:8px;}
+  .tab{flex:1;background:none;border:none;color:var(--dim);padding:10px 4px;font-size:13px;font-weight:600;border-bottom:2px solid transparent;}
+  .tab.on{color:var(--text);border-bottom:2px solid var(--accent);}
+
+  main{padding:8px 16px 0;}
+  .stack{display:flex;flex-direction:column;gap:14px;}
+
+  .hero{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:22px 20px;}
+  .hero-label{font-size:12px;color:var(--dim);font-weight:500;}
+  .hero-big{font-family:var(--display);font-size:40px;font-weight:700;letter-spacing:-1px;margin:6px 0 10px;}
+  .hero-split{display:flex;gap:10px;font-size:14px;font-family:var(--mono);}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 16px 18px;}
+  .card-title{font-size:13px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono);}
+  .card-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .note{font-size:12.5px;color:var(--dim);line-height:1.5;margin:8px 0 14px;}
+
+  .pat-row{display:flex;gap:12px;margin-top:14px;}
+  .pat-block{flex:1;background:var(--panel2);border-radius:12px;padding:12px 14px;}
+  .pat-name{font-size:13px;font-weight:700;font-family:var(--mono);}
+  .pat-val{font-family:var(--display);font-size:20px;font-weight:600;margin-top:4px;letter-spacing:-.5px;}
+  .pat-total{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--dim);}
+
+  table{width:100%;border-collapse:collapse;margin-top:12px;}
+  th.l{text-align:left;} th.r{text-align:right;}
+  th{font-size:11px;color:var(--dim);font-weight:600;padding:0 0 8px;}
+  td.l{text-align:left;font-size:13.5px;padding:9px 0;border-top:1px solid var(--line);}
+  td.r{text-align:right;font-size:13.5px;padding:9px 0 9px 8px;border-top:1px solid var(--line);font-family:var(--mono);}
+
+  .cuenta{background:var(--panel2);border-radius:12px;padding:14px;margin-top:12px;}
+  .cuenta-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+  .cuenta-name{font-size:14px;font-weight:700;}
+  .cuenta-sub{font-size:11.5px;color:var(--dim);margin-top:2px;}
+  .cuenta-total{font-family:var(--display);font-size:20px;font-weight:600;}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .bar-label{font-size:12px;color:var(--dim);width:74px;flex-shrink:0;}
+  .bar-track{flex:1;height:8px;background:var(--line);border-radius:6px;overflow:hidden;}
+  .bar-fill{height:8px;border-radius:6px;transition:width .4s ease;}
+  .bar-val{font-size:12.5px;font-family:var(--mono);width:78px;text-align:right;flex-shrink:0;}
+
+  .segment{display:flex;gap:6px;background:var(--panel);padding:5px;border-radius:12px;border:1px solid var(--line);}
+  .seg-btn{flex:1;background:none;border:none;color:var(--dim);padding:10px 4px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);transition:all .2s;}
+
+  .chip{font-size:13px;font-family:var(--mono);font-weight:700;border:1px solid;border-radius:20px;padding:3px 12px;}
+  .input-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);}
+  .input-label{font-size:13.5px;flex:1;}
+  .input-wrap{position:relative;width:120px;flex-shrink:0;}
+  .input-wrap input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font-size:15px;font-family:var(--mono);padding:9px 26px 9px 12px;text-align:right;}
+  .input-eur{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:13px;pointer-events:none;}
+
+  .foot-note{font-size:12px;color:var(--dim);text-align:center;margin:2px 0 0;}
+  .prog-outer{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:8px;}
+  .prog-inner{height:10px;border-radius:6px;transition:width .4s;}
+
+  .setup{padding:30px 22px;}
+  .setup h2{font-family:var(--display);font-size:22px;margin:0 0 8px;}
+  .setup p{font-size:14px;color:var(--dim);line-height:1.6;}
+  .setup input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:14px;padding:12px;margin:12px 0;font-family:var(--mono);}
+  .setup button{width:100%;background:var(--accent);color:#0d1017;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;}
+  .loading{display:grid;place-items:center;min-height:100vh;color:var(--dim);font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Cargando…</div></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════════════════════════
+// Pega aquí la URL de tu Apps Script (la guía te dice cómo obtenerla).
+// Si la dejas vacía, la app te pedirá pegarla la primera vez y la recuerda.
+const SCRIPT_URL = "";
+
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const MESES_CORTO = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const ANIO = 2026;
+
+// ── Reparto de vivienda por mes (fuente: hoja "26 BUDGET" del Excel) ──────────
+// Índice de mes 0..11 -> aportación de cada uno a vivienda conjunta.
+const VIVIENDA = {
+  0:{ksr:1291.72, jtr:6047.59, asturias:776.22, madridKsr:515.50, madridJtr:6047.59},
+  1:{ksr:1269.90, jtr:1904.85, asturias:796.22, madridKsr:473.68, madridJtr:1904.85},
+  2:{ksr:1209.16, jtr:1813.75, asturias:918.06, madridKsr:291.10, madridJtr:1813.75},
+  3:{ksr:977.90,  jtr:3756.85, asturias:796.22, madridKsr:181.68, madridJtr:3756.85},
+  4:{ksr:1158.71, jtr:1738.06, asturias:776.22, madridKsr:382.49, madridJtr:1738.06},
+  5:{ksr:1133.16, jtr:1699.75, asturias:938.06, madridKsr:195.10, madridJtr:1699.75},
+  6:{ksr:1568.10, jtr:1757.85, asturias:776.22, madridKsr:791.88, madridJtr:1757.85},
+  7:{ksr:1780.44, jtr:2670.65, asturias:1151.82, madridKsr:628.62, madridJtr:2670.65},
+  8:{ksr:1645.58, jtr:1641.62, asturias:924.97, madridKsr:720.61, madridJtr:1641.62},
+  9:{ksr:1475.91, jtr:4186.13, asturias:803.13, madridKsr:672.78, madridJtr:4186.13},
+  10:{ksr:1561.81, jtr:1767.28, asturias:960.13, madridKsr:601.68, madridJtr:1767.28},
+  11:{ksr:1547.44, jtr:1788.83, asturias:944.97, madridKsr:602.47, madridJtr:1788.83},
+};
+
+// ── Gastos fijos personales por mes (gimnasio, seguros, cuotas, colchón) ──────
+const FIJOS = {
+  KSR:{0:156,1:156,2:156,3:181,4:256,5:156,6:156,7:72,8:156,9:156,10:156,11:156},
+  JTR:{0:235.47,1:235.47,2:235.47,3:235.47,4:235.47,5:235.47,6:235.47,7:235.47,8:295.37,9:235.47,10:235.47,11:235.47},
+};
+
+// ── Patrimonio: saldo inicial 1-Ago 2026 y ahorro enviado por mes ────────────
+const SALDO_INICIAL = { KSR:12911.08, JTR:21071.12 };
+// Ahorro objetivo enviado cada mes (del Excel). Se acumula desde Agosto.
+const AHORRO_MES = {
+  KSR:{7:9363.06,8:614.66,9:733.43,10:673.30,11:3340.98},
+  JTR:{7:3616.83,8:898.05,9:3109.87,10:1027.94,11:1043.02},
+};
+
+// ── Conceptos de gasto editables desde la app ────────────────────────────────
+const CONCEPTOS = {
+  KSR:["Comida y Cafés Oficina","Coche (Gasolina)","Moto Gasolina","Ropa","Taxis y transporte","Parking","Cuidado personal","Deporte Extra (Golf, padel…)"],
+  JTR:["Comidas","Transporte (Gasolina)","Ropa","Shampoo","Cremas cara","Peluquería","Baia","Otros variables","Comida Oficina + café"],
+  MADRID:["Supermercado","Luz y gas","Agua","Telefonía e internet","Alarma","Servicio limpieza","Otros hogar Madrid"],
+  ASTURIAS:["Luz","Gas","Agua","Telefonía e internet","Seguro de vida","Alarma","Otros hogar Asturias"],
+};
+// Presupuesto de referencia por ámbito y mes (para calcular "restante").
+// Casas: usamos la aportación de vivienda como tope orientativo del mes.
+const AMBITO_LABEL = { KSR:"Kevin", JTR:"Juliette", MADRID:"Casa Madrid", ASTURIAS:"Casa Asturias" };
+const AMBITO_COLOR = { KSR:"var(--ksr)", JTR:"var(--jtr)", MADRID:"var(--madrid)", ASTURIAS:"var(--asturias)" };
+
+const eur = n => (n||0).toLocaleString("es-ES",{style:"currency",currency:"EUR",minimumFractionDigits:2,maximumFractionDigits:2});
+const eur0 = n => (n||0).toLocaleString("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0});
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ESTADO
+// ══════════════════════════════════════════════════════════════════════════
+let state = {
+  mes: 7,
+  tab: "resumen",
+  ambito: "KSR",
+  gastos: {},        // clave "anio:mes:ambito:concepto" -> importe
+  scriptUrl: SCRIPT_URL || localStorage.getItem("cg_url") || "",
+  autor: localStorage.getItem("cg_autor") || "",
+  saveState: "",     // "", "busy", "ok", "err"
+  cargando: true,
+};
+
+const key = (mes, ambito, concepto) => `${ANIO}:${mes}:${ambito}:${concepto}`;
+const getGasto = (mes, ambito, concepto) => Number(state.gastos[key(mes,ambito,concepto)] || 0);
+
+function totalAmbito(mes, ambito){
+  return CONCEPTOS[ambito].reduce((t,c)=>t+getGasto(mes,ambito,c),0);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RED
+// ══════════════════════════════════════════════════════════════════════════
+async function cargarGastos(){
+  if(!state.scriptUrl) return;
+  try{
+    const r = await fetch(state.scriptUrl);
+    const data = await r.json();
+    if(data.ok){
+      const g = {};
+      for(const x of data.gastos){
+        g[`${x.anio}:${x.mesIndice}:${x.ambito}:${x.concepto}`] = x.importe;
+      }
+      state.gastos = g;
+    }
+  }catch(e){ /* sin conexión: usa lo que haya */ }
+}
+
+let saveTimer = null;
+function guardarGasto(mes, ambito, concepto, importe){
+  state.gastos[key(mes,ambito,concepto)] = importe;
+  if(!state.scriptUrl){ setSave("err"); return; }
+  setSave("busy");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{
+      await fetch(state.scriptUrl, {
+        method:"POST",
+        body: JSON.stringify({ anio:ANIO, mesIndice:mes, ambito, concepto,
+                               importe:Number(importe)||0, autor:state.autor }),
+      });
+      setSave("ok");
+      setTimeout(()=>setSave(""),1400);
+    }catch(e){ setSave("err"); }
+  }, 600);
+}
+
+function setSave(s){ state.saveState = s; const el=document.querySelector(".save-pill"); if(el){el.className="save-pill "+s; el.textContent = s==="ok"?"Guardado ✓":s==="busy"?"Guardando…":s==="err"?"Sin conexión":"";} }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════════════════
+function render(){
+  const app = document.getElementById("app");
+
+  if(state.cargando){ app.innerHTML = `<div class="loading">Cargando…</div>`; return; }
+
+  // Primera vez: pedir URL + nombre
+  if(!state.scriptUrl || !state.autor){
+    app.innerHTML = vistaSetup();
+    return;
+  }
+
+  app.innerHTML = `
+    <header>
+      <div>
+        <div class="eyebrow">Control de gastos · KSR + JTR</div>
+        <div class="month-row">
+          <button class="arrow" onclick="cambiarMes(-1)" aria-label="Mes anterior">‹</button>
+          <h1>${MESES[state.mes]}</h1>
+          <button class="arrow" onclick="cambiarMes(1)" aria-label="Mes siguiente">›</button>
+        </div>
+      </div>
+      <div class="save-pill ${state.saveState}">${state.saveState==="ok"?"Guardado ✓":state.saveState==="busy"?"Guardando…":state.saveState==="err"?"Sin conexión":""}</div>
+    </header>
+    <nav class="tabs">
+      ${[["resumen","Resumen"],["reparto","Reparto"],["gastos","Gastos"],["ahorro","Ahorro"]]
+        .map(([k,l])=>`<button class="tab ${state.tab===k?"on":""}" onclick="setTab('${k}')">${l}</button>`).join("")}
+    </nav>
+    <main>${
+      state.tab==="resumen"?vistaResumen():
+      state.tab==="reparto"?vistaReparto():
+      state.tab==="gastos"?vistaGastos():
+      vistaAhorro()
+    }</main>
+  `;
+}
+
+function vistaSetup(){
+  return `<div class="setup">
+    <h2>Conecta la app</h2>
+    <p>Pega la URL de tu Google Apps Script (la de la guía) y pon tu nombre. Se guarda en este móvil; solo hace falta una vez.</p>
+    <input id="su-url" placeholder="https://script.google.com/macros/s/…/exec" value="${state.scriptUrl||""}" />
+    <input id="su-autor" placeholder="Tu nombre (Kevin / Juliette)" value="${state.autor||""}" />
+    <button onclick="guardarSetup()">Entrar</button>
+  </div>`;
+}
+
+function vistaResumen(){
+  const v = VIVIENDA[state.mes];
+  const totalConjunto = v.ksr + v.jtr;
+  const patKSR = patrimonio("KSR"), patJTR = patrimonio("JTR");
+  return `<div class="stack">
+    <section class="hero">
+      <div class="hero-label">Vivienda conjunta → cuentas del hogar</div>
+      <div class="hero-big">${eur(totalConjunto)}</div>
+      <div class="hero-split">
+        <span><b style="color:var(--ksr)">KSR</b> ${eur(v.ksr)}</span>
+        <span style="color:var(--line)">·</span>
+        <span><b style="color:var(--jtr)">JTR</b> ${eur(v.jtr)}</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Gasto del mes registrado</div>
+      <div class="pat-row">
+        ${["KSR","JTR"].map(a=>bloqueGastoMes(a)).join("")}
+      </div>
+      <div class="pat-row" style="margin-top:12px;">
+        ${["MADRID","ASTURIAS"].map(a=>bloqueGastoMes(a)).join("")}
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Patrimonio de ahorro acumulado</div>
+      <div class="pat-row">
+        <div class="pat-block"><div class="pat-name" style="color:var(--ksr)">KSR</div><div class="pat-val">${eur(patKSR)}</div></div>
+        <div class="pat-block"><div class="pat-name" style="color:var(--jtr)">JTR</div><div class="pat-val">${eur(patJTR)}</div></div>
+      </div>
+      <div class="pat-total"><span>Total conjunto</span><b>${eur(patKSR+patJTR)}</b></div>
+    </section>
+  </div>`;
+}
+
+function bloqueGastoMes(ambito){
+  const t = totalAmbito(state.mes, ambito);
+  return `<div class="pat-block">
+    <div class="pat-name" style="color:${AMBITO_COLOR[ambito]}">${AMBITO_LABEL[ambito]}</div>
+    <div class="pat-val">${eur(t)}</div>
+  </div>`;
+}
+
+function vistaReparto(){
+  const v = VIVIENDA[state.mes];
+  const madridTotal = v.madridKsr + v.madridJtr;
+  return `<div class="stack">
+    <section class="card">
+      <div class="card-title">Reparto por cuentas bancarias</div>
+      <p class="note">KSR paga íntegra la cuenta de Asturias; el resto de su aportación va a Madrid. JTR pone toda su aportación en Madrid.</p>
+      ${cuentaCard("Cuenta ASTURIAS","La paga íntegra KSR",v.asturias,[["KSR aporta",v.asturias,"var(--ksr)"],["JTR aporta",0,"var(--jtr)"]])}
+      ${cuentaCard("Cuenta MADRID","JTR + resto de KSR",madridTotal,[["KSR aporta",v.madridKsr,"var(--ksr)"],["JTR aporta",v.madridJtr,"var(--jtr)"]])}
+    </section>
+    <section class="card">
+      <div class="card-title">Total que transfiere cada uno</div>
+      <div class="pat-row">
+        <div class="pat-block" style="text-align:center"><div class="pat-name" style="color:var(--ksr)">KSR</div><div class="pat-val" style="font-size:24px">${eur(v.ksr)}</div></div>
+        <div class="pat-block" style="text-align:center"><div class="pat-name" style="color:var(--jtr)">JTR</div><div class="pat-val" style="font-size:24px">${eur(v.jtr)}</div></div>
+      </div>
+    </section>
+  </div>`;
+}
+
+function cuentaCard(nombre,sub,total,filas){
+  return `<div class="cuenta">
+    <div class="cuenta-head">
+      <div><div class="cuenta-name">${nombre}</div><div class="cuenta-sub">${sub}</div></div>
+      <div class="cuenta-total">${eur(total)}</div>
+    </div>
+    ${filas.map(([l,val,col])=>`
+      <div class="bar-row">
+        <span class="bar-label">${l}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${total?(val/total*100):0}%;background:${col}"></div></div>
+        <span class="bar-val">${eur(val)}</span>
+      </div>`).join("")}
+  </div>`;
+}
+
+function vistaGastos(){
+  const a = state.ambito;
+  const col = AMBITO_COLOR[a];
+  const gastado = totalAmbito(state.mes, a);
+  // presupuesto orientativo: para personas usamos su fijo variable; para casas, la aportación de vivienda
+  return `<div class="stack">
+    <div class="segment">
+      ${["KSR","JTR","MADRID","ASTURIAS"].map(x=>`
+        <button class="seg-btn" style="${state.ambito===x?`background:${AMBITO_COLOR[x]};color:#0d1017`:""}" onclick="setAmbito('${x}')">
+          ${x==="MADRID"?"Madrid":x==="ASTURIAS"?"Asturias":x}
+        </button>`).join("")}
+    </div>
+    <section class="card">
+      <div class="card-title-row">
+        <span class="card-title">${AMBITO_LABEL[a]} · ${MESES_CORTO[state.mes]}</span>
+        <span class="chip" style="color:${col};border-color:${col}">${eur(gastado)}</span>
+      </div>
+      <div style="margin-top:8px">
+        ${CONCEPTOS[a].map(c=>{
+          const k = key(state.mes,a,c);
+          const val = state.gastos[k] ?? "";
+          return `<label class="input-row">
+            <span class="input-label">${c}</span>
+            <div class="input-wrap">
+              <input type="number" inputmode="decimal" placeholder="0" value="${val}"
+                oninput="onGasto('${a}','${c.replace(/'/g,"\\'")}',this.value)" />
+              <span class="input-eur">€</span>
+            </div>
+          </label>`;
+        }).join("")}
+      </div>
+    </section>
+    <p class="foot-note">Se guarda en el Sheet y lo ve ${a==="KSR"||a==="JTR"?"el otro":"los dos"} al instante.</p>
+  </div>`;
+}
+
+function vistaAhorro(){
+  return `<div class="stack">
+    <section class="card">
+      <div class="card-title">Patrimonio total acumulado</div>
+      <p class="note">Desde el saldo real a 1-Ago 2026 más el ahorro enviado cada mes (gestionado en el Sheet).</p>
+      ${["KSR","JTR"].map(p=>{
+        const col = p==="KSR"?"var(--ksr)":"var(--jtr)";
+        const ini = SALDO_INICIAL[p];
+        const env = ahorroAcumulado(p, state.mes);
+        const tot = ini+env;
+        return `<div style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+            <span class="pat-name" style="color:${col}">${p}</span>
+            <b style="font-family:var(--display);font-size:20px;font-weight:600">${eur(tot)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:8px;font-family:var(--mono)">
+            <span>Saldo inicial ${eur0(ini)}</span><span style="color:${col}">+ ${eur0(env)} enviado</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${tot?(env/tot*100):0}%;background:${col}"></div></div>
+        </div>`;
+      }).join("")}
+      <div class="pat-total"><span>Total conjunto</span><b>${eur(patrimonio("KSR")+patrimonio("JTR"))}</b></div>
+    </section>
+  </div>`;
+}
+
+// patrimonio a fecha del mes seleccionado
+function ahorroAcumulado(persona, mes){
+  let t=0;
+  for(let m=7;m<=mes;m++){ t += (AHORRO_MES[persona]?.[m])||0; }
+  return t;
+}
+function patrimonio(persona){ return SALDO_INICIAL[persona] + ahorroAcumulado(persona, state.mes); }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  EVENTOS
+// ══════════════════════════════════════════════════════════════════════════
+function cambiarMes(d){ state.mes = (state.mes + d + 12) % 12; render(); }
+function setTab(t){ state.tab = t; render(); }
+function setAmbito(a){ state.ambito = a; render(); }
+function onGasto(ambito, concepto, val){ guardarGasto(state.mes, ambito, concepto, val); }
+
+function guardarSetup(){
+  const url = document.getElementById("su-url").value.trim();
+  const autor = document.getElementById("su-autor").value.trim();
+  if(!url || !autor){ return; }
+  state.scriptUrl = url; state.autor = autor;
+  localStorage.setItem("cg_url", url);
+  localStorage.setItem("cg_autor", autor);
+  init();
+}
+
+async function init(){
+  state.cargando = true; render();
+  await cargarGastos();
+  state.cargando = false; render();
+  // refresco periódico para ver lo que mete el otro
+  setInterval(async ()=>{ await cargarGastos(); if(state.tab==="resumen"||state.tab==="gastos") render(); }, 20000);
+}
+
+init();
+</script>
+</body>
+</html>
