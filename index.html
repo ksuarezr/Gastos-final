@@ -264,6 +264,14 @@ const getGasto = (mes, ambito, concepto) => num(state.gastos[key(mes,ambito,conc
 function totalAmbito(mes, ambito){
   return CONCEPTO_KEYS(ambito).reduce((t,c)=>t+getGasto(mes,ambito,c),0);
 }
+// Solo conceptos CON budget (para el KPI de variables de personas).
+// Los conceptos sin budget no cuentan aquí: van a caprichos.
+function totalConBudget(mes, ambito){
+  return CONCEPTOS[ambito].reduce((t,[c,budRaw])=>{
+    const bc = budgetConceptoVal(budRaw, mes);
+    return t + (bc>0 ? getGasto(mes,ambito,c) : 0);
+  },0);
+}
 // ── Acumulado del año (desde Agosto=7 hasta el mes actual) ────────────────────
 const MES_INICIO = 7; // Agosto
 // gastado acumulado de conceptos (variables/extras/casa)
@@ -278,13 +286,16 @@ function budgetAcum(ambito, hastaMes){
   for(let m=MES_INICIO; m<=hastaMes; m++){ t += budgetTotal(ambito, m); }
   return t;
 }
-// para personas: incluir caprichos (gastado y límite) en el acumulado total
+// para personas: variables con budget + caprichos (consumo total). Casas: todo.
 function gastadoAcumTotal(ambito, hastaMes){
-  let t = gastadoAcum(ambito, hastaMes);
   if(ambito==="KSR"||ambito==="JTR"){
-    for(let m=MES_INICIO; m<=hastaMes; m++){ t += gastoCaprichosManual(m, ambito); }
+    let t=0;
+    for(let m=MES_INICIO; m<=hastaMes; m++){
+      t += totalConBudget(m, ambito) + gastoCaprichos(m, ambito);
+    }
+    return t;
   }
-  return t; // nota: el consumo de caprichos por concepto ya está dentro de gastadoAcum
+  return gastadoAcum(ambito, hastaMes);
 }
 function budgetAcumTotal(ambito, hastaMes){
   let t = budgetAcum(ambito, hastaMes);
@@ -432,9 +443,11 @@ function vistaResumen(){
 }
 
 function bloqueGastoMes(ambito){
-  const t = totalAmbito(state.mes, ambito);
   const esPersona = (ambito==="KSR"||ambito==="JTR");
-  const totalPersona = esPersona ? t + gastoCaprichos(state.mes, ambito) : t;
+  // persona: variables con budget + consumo total de caprichos (que ya incluye sin-budget y excesos)
+  const totalPersona = esPersona
+    ? totalConBudget(state.mes, ambito) + gastoCaprichos(state.mes, ambito)
+    : totalAmbito(state.mes, ambito);
   const bud = esPersona ? budgetTotal(ambito, state.mes) + (CAPRICHOS[ambito][state.mes]||0) : budgetTotal(ambito, state.mes);
   const sub = bud>0 ? `de ${eur0(bud)}` : "";
   return `<div class="pat-block">
@@ -502,7 +515,7 @@ function vistaGastos(){
   const col = AMBITO_COLOR[a];
   const esPersona = (a==="KSR"||a==="JTR");
   const esCasa = ES_CASA(a);
-  const gastado = totalAmbito(state.mes, a);
+  const gastado = esCasa ? totalAmbito(state.mes, a) : totalConBudget(state.mes, a);
   const bud = budgetTotal(a, state.mes);
   const desv = gastado - bud;
 
@@ -516,10 +529,10 @@ function vistaGastos(){
 
     <!-- Resumen: budget vs gastado vs desviación -->
     <section class="card">
-      <div class="card-title">${AMBITO_LABEL[a]} · ${MESES_CORTO[state.mes]}</div>
+      <div class="card-title">${AMBITO_LABEL[a]} · ${esCasa?"":"variables "}${MESES_CORTO[state.mes]}</div>
       <div class="kpi-row">
         <div class="kpi"><span class="kpi-l">Budget mes</span><span class="kpi-v">${eur(bud)}</span></div>
-        <div class="kpi"><span class="kpi-l">Gastado</span><span class="kpi-v" style="color:${col}">${eur(gastado)}</span></div>
+        <div class="kpi"><span class="kpi-l">Gastado${esCasa?"":" var."}</span><span class="kpi-v" style="color:${col}">${eur(gastado)}</span></div>
         <div class="kpi"><span class="kpi-l">Desviación</span><span class="kpi-v" style="color:${desv>0?'#ff6b6b':'var(--ksr)'}">${desv>0?'+':''}${eur(desv)}</span></div>
       </div>
       <div class="prog-outer"><div class="prog-inner" style="width:${bud?Math.min(gastado/bud*100,100):0}%;background:${desv>0?'#ff6b6b':col}"></div></div>
