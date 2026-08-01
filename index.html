@@ -74,6 +74,7 @@
 
   .segment{display:flex;gap:6px;background:var(--panel);padding:5px;border-radius:12px;border:1px solid var(--line);}
   .seg-btn{flex:1;background:none;border:none;color:var(--dim);padding:10px 4px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);transition:all .2s;}
+  .seg-wrap .seg-btn{font-size:11.5px;padding:9px 2px;}
 
   .chip{font-size:13px;font-family:var(--mono);font-weight:700;border:1px solid;border-radius:20px;padding:3px 12px;}
   .input-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);}
@@ -174,13 +175,40 @@ const CONCEPTOS = {
     ["Regalos",0],["Viajes y vacaciones",0],["Gastos médicos",0],["Donativos",0],
     ["Otros gastos extras - Dr Max",0],["Libros",0],["Viñeta",0],["Ruedas",0],
   ],
+  // Casas: budget POR MES (Ago→Dic). Cada concepto lleva {7:ago,8:sep,9:oct,10:nov,11:dic}
   MADRID:[
-    ["Supermercado",0],["Luz y gas",0],["Agua",0],["Telefonía e internet",0],
-    ["Alarma",0],["Servicio limpieza",0],["Otros hogar Madrid",0],
+    ["Alquiler",{7:1453,8:1453,9:1453,10:1453,11:1453}],
+    ["Suministros - agua",{7:0,8:30,9:0,10:30,11:0}],
+    ["Placas - agua caliente",{7:0,8:0,9:0,10:0,11:35}],
+    ["Luz & gas",{7:60,8:60,9:60,10:60,11:60}],
+    ["Telefonía e internet",{7:48,8:48,9:48,10:48,11:48}],
+    ["Alarma",{7:53,8:53,9:53,10:53,11:53}],
+    ["Servicio Limpieza",{7:306.65,8:306.65,9:306.65,10:306.65,11:306.65}],
   ],
   ASTURIAS:[
-    ["Luz",0],["Gas",0],["Agua",0],["Telefonía e internet",0],
-    ["Seguro de vida",0],["Alarma",0],["Otros hogar Asturias",0],
+    ["Hipoteca Asturias",{7:650.02,8:650.02,9:650.02,10:650.02,11:650.02}],
+    ["Suministros - agua",{7:0,8:59.01,9:0,10:0,11:59.01}],
+    ["Luz",{7:60,8:60,9:60,10:60,11:60}],
+    ["Gas",{7:20,8:0,9:20,10:0,11:20}],
+    ["Telefonía e internet",{7:19,8:19,9:19,10:19,11:19}],
+    ["Seguro de vida",{7:0,8:82.83,9:0,10:0,11:82.83}],
+    ["Alarma",{7:54.11,8:54.11,9:54.11,10:54.11,11:54.11}],
+    ["Gastos hogar",{7:348.69,8:0,9:0,10:0,11:0}],
+    ["IBI",{7:0,8:0,9:0,10:177,11:0}],
+  ],
+  CASAS:[
+    ["Supermercado",{7:460,8:460,9:460,10:460,11:460}],
+    ["Max",{7:50,8:50,9:50,10:50,11:50}],
+    ["Seguro del vehículo",{7:411.74,8:212.64,9:0,10:0,11:0}],
+    ["Seguro hogar (Ast+Mad+Moto)",{7:60.21,8:60.21,9:60.21,10:60.21,11:60.21}],
+    ["Natulim",{7:0,8:9.80,9:0,10:27.75,11:0}],
+    ["Cuota VW mant.",{7:29.79,8:29.79,9:29.79,10:29.79,11:29.79}],
+    ["Mini",{7:285.88,8:285,9:285,10:285,11:285}],
+    ["Transporte (gasolina, VIAT)",{7:65,8:65,9:65,10:65,11:65}],
+    ["Viñeta",{7:0,8:0,9:0,10:0,11:0}],
+    ["Ruedas",{7:0,8:0,9:0,10:0,11:0}],
+    ["Spotify",{7:16,8:16,9:16,10:16,11:17.99}],
+    ["Amazon",{7:0,8:49.90,9:0,10:0,11:0}],
   ],
 };
 
@@ -198,11 +226,18 @@ const AHORRO_REPARTO = {
     7:[2531.78,1085.05], 8:[628.63,269.41], 9:[2176.91,932.96], 10:[719.56,308.38], 11:[730.12,312.91] },
 };
 
-const AMBITO_LABEL = { KSR:"Kevin", JTR:"Juliette", MADRID:"Casa Madrid", ASTURIAS:"Casa Asturias" };
-const AMBITO_COLOR = { KSR:"var(--ksr)", JTR:"var(--jtr)", MADRID:"var(--madrid)", ASTURIAS:"var(--asturias)" };
+const AMBITO_LABEL = { KSR:"Kevin", JTR:"Juliette", MADRID:"Casa Madrid", ASTURIAS:"Casa Asturias", CASAS:"Gastos casas" };
+const AMBITO_COLOR = { KSR:"var(--ksr)", JTR:"var(--jtr)", MADRID:"var(--madrid)", ASTURIAS:"var(--asturias)", CASAS:"#8bd5b0" };
+const ES_CASA = amb => (amb==="MADRID"||amb==="ASTURIAS"||amb==="CASAS");
 const CONCEPTO_KEYS = amb => CONCEPTOS[amb].map(c=>c[0]);
-const budgetConcepto = (amb,concepto) => { const f=CONCEPTOS[amb].find(c=>c[0]===concepto); return f?f[1]:0; };
-const budgetTotal = amb => CONCEPTOS[amb].reduce((t,c)=>t+c[1],0);
+// budget de un concepto: si es número, fijo; si es objeto {mes:val}, según el mes
+const budgetConcepto = (amb,concepto,mes) => {
+  const f=CONCEPTOS[amb].find(c=>c[0]===concepto);
+  if(!f) return 0;
+  return (typeof f[1]==="object") ? (f[1][mes]||0) : f[1];
+};
+const budgetConceptoVal = (bud,mes) => (typeof bud==="object") ? (bud[mes]||0) : bud;
+const budgetTotal = (amb,mes) => CONCEPTOS[amb].reduce((t,c)=>t+budgetConceptoVal(c[1],mes),0);
 
 const eur = n => (n||0).toLocaleString("es-ES",{style:"currency",currency:"EUR",minimumFractionDigits:2,maximumFractionDigits:2});
 const eur0 = n => (n||0).toLocaleString("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0});
@@ -352,7 +387,7 @@ function vistaResumen(){
         ${["KSR","JTR"].map(a=>bloqueGastoMes(a)).join("")}
       </div>
       <div class="pat-row" style="margin-top:12px;">
-        ${["MADRID","ASTURIAS"].map(a=>bloqueGastoMes(a)).join("")}
+        ${["MADRID","ASTURIAS","CASAS"].map(a=>bloqueGastoMes(a)).join("")}
       </div>
     </section>
 
@@ -370,9 +405,8 @@ function vistaResumen(){
 function bloqueGastoMes(ambito){
   const t = totalAmbito(state.mes, ambito);
   const esPersona = (ambito==="KSR"||ambito==="JTR");
-  // para personas: variables + caprichos; casas: solo variables
   const totalPersona = esPersona ? t + gastoCaprichos(state.mes, ambito) : t;
-  const bud = esPersona ? budgetTotal(ambito) + (CAPRICHOS[ambito][state.mes]||0) : budgetTotal(ambito);
+  const bud = esPersona ? budgetTotal(ambito, state.mes) + (CAPRICHOS[ambito][state.mes]||0) : budgetTotal(ambito, state.mes);
   const sub = bud>0 ? `de ${eur0(bud)}` : "";
   return `<div class="pat-block">
     <div class="pat-name" style="color:${AMBITO_COLOR[ambito]}">${AMBITO_LABEL[ambito]}</div>
@@ -420,21 +454,22 @@ function vistaGastos(){
   const a = state.ambito;
   const col = AMBITO_COLOR[a];
   const esPersona = (a==="KSR"||a==="JTR");
+  const esCasa = ES_CASA(a);
   const gastado = totalAmbito(state.mes, a);
-  const bud = budgetTotal(a);
-  const desv = gastado - bud; // + = te pasaste, - = por debajo
+  const bud = budgetTotal(a, state.mes);
+  const desv = gastado - bud;
 
   return `<div class="stack">
-    <div class="segment">
-      ${["KSR","JTR","MADRID","ASTURIAS"].map(x=>`
+    <div class="segment seg-wrap">
+      ${["KSR","JTR","MADRID","ASTURIAS","CASAS"].map(x=>`
         <button class="seg-btn" style="${state.ambito===x?`background:${AMBITO_COLOR[x]};color:#0d1017`:""}" onclick="setAmbito('${x}')">
-          ${x==="MADRID"?"Madrid":x==="ASTURIAS"?"Asturias":x}
+          ${x==="MADRID"?"Madrid":x==="ASTURIAS"?"Asturias":x==="CASAS"?"Casas":x}
         </button>`).join("")}
     </div>
 
     <!-- Resumen: budget vs gastado vs desviación -->
     <section class="card">
-      <div class="card-title">${AMBITO_LABEL[a]} · variables ${MESES_CORTO[state.mes]}</div>
+      <div class="card-title">${AMBITO_LABEL[a]} · ${MESES_CORTO[state.mes]}</div>
       <div class="kpi-row">
         <div class="kpi"><span class="kpi-l">Budget mes</span><span class="kpi-v">${eur(bud)}</span></div>
         <div class="kpi"><span class="kpi-l">Gastado</span><span class="kpi-v" style="color:${col}">${eur(gastado)}</span></div>
@@ -447,18 +482,20 @@ function vistaGastos(){
 
     <!-- Conceptos con barra de progreso -->
     <section class="card">
-      <div class="card-title">Conceptos variables y extras</div>
+      <div class="card-title">${esCasa?"Conceptos":"Conceptos variables y extras"}</div>
       <div style="margin-top:10px">
-        ${CONCEPTOS[a].map(([c,bc],i)=>{
+        ${CONCEPTOS[a].map(([c,budRaw],i)=>{
+          const bc = budgetConceptoVal(budRaw, state.mes);
           const g = getGasto(state.mes,a,c);
           const pct = bc? Math.min(g/bc*100,100) : (g>0?100:0);
           const over = bc>0 && g>bc;
-          const consumeCap = bc>0 ? Math.max(0,g-bc) : g;
           let nota;
           if(bc>0){
-            nota = `${eur(g)} / ${eur(bc)}` + (over?` · +${eur(consumeCap)} caprichos`:"");
+            const exceso = Math.max(0,g-bc);
+            nota = `${eur(g)} / ${eur(bc)}` + (over? (esCasa?` · +${eur(exceso)} sobre budget`:` · +${eur(exceso)} caprichos`):"");
           } else {
-            nota = g>0 ? `${eur(g)} · caprichos` : "va a caprichos";
+            nota = esCasa ? (g>0?`${eur(g)} · sin budget`:"sin budget este mes")
+                          : (g>0?`${eur(g)} · caprichos`:"va a caprichos");
           }
           const inputId = `in_${a}_${i}`;
           return `<div class="cpt">
@@ -475,7 +512,7 @@ function vistaGastos(){
               <button class="add-btn" style="background:${col}" onclick="anadirGasto('${a}','${c.replace(/'/g,"\\'")}','${inputId}')">+</button>
             </div>
             <div class="cpt-bar">
-              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':(bc>0?col:'var(--accent)')}"></div></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':(bc>0?col:(esCasa?'var(--dim)':'var(--accent)'))}"></div></div>
               <span class="cpt-bud">${nota}</span>
             </div>
           </div>`;
