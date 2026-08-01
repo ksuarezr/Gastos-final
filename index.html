@@ -159,10 +159,15 @@ const CONCEPTOS = {
   KSR:[
     ["Comida y Cafés Oficina",0],["Coche (Gasolina)",0],["Moto Gasolina",20],["Ropa",27],
     ["Taxis y transporte",0],["Parking",0],["Cuidado personal",13.33],["Deporte Extra (Golf, padel…)",0],
+    ["Restaurantes y comida (extra)",0],["Mantenimiento Vehículos",0],["Regalos",0],
+    ["Viajes y vacaciones",0],["Ropa (extraordinaria)",0],["Otros gastos extras",0],
   ],
   JTR:[
     ["Comidas",0],["Transporte (Gasolina)",0],["Ropa",40],["Shampoo",0],["Cremas cara",0],
     ["Peluquería",23.33],["Baia",0],["Otros variables - Max",0],["Comida Oficina + café",0],
+    ["Actividades de ocio y entretenimiento",0],["Café",0],["Lavado coche",0],["Compras para el hogar",0],
+    ["Regalos",0],["Viajes y vacaciones",0],["Gastos médicos",0],["Donativos",0],
+    ["Otros gastos extras - Dr Max",0],["Libros",0],["Viñeta",0],["Ruedas",0],
   ],
   MADRID:[
     ["Supermercado",0],["Luz y gas",0],["Agua",0],["Telefonía e internet",0],
@@ -433,9 +438,11 @@ function vistaGastos(){
       <div class="prog-outer"><div class="prog-inner" style="width:${bud?Math.min(gastado/bud*100,100):0}%;background:${desv>0?'#ff6b6b':col}"></div></div>
     </section>
 
+    ${esPersona ? bloqueCaprichos(a, col) : ""}
+
     <!-- Conceptos con barra de progreso -->
     <section class="card">
-      <div class="card-title">Conceptos variables</div>
+      <div class="card-title">Conceptos variables y extras</div>
       <div style="margin-top:10px">
         ${CONCEPTOS[a].map(([c,bc])=>{
           const k = key(state.mes,a,c);
@@ -467,8 +474,6 @@ function vistaGastos(){
         }).join("")}
       </div>
     </section>
-
-    ${esPersona ? bloqueCaprichos(a, col) : ""}
 
     <p class="foot-note">Se guarda en el Sheet y lo ve ${esPersona?"el otro":"los dos"} al instante.</p>
   </div>`;
