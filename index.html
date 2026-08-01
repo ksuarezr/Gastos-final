@@ -93,6 +93,11 @@
   .cpt{padding:11px 0;border-top:1px solid var(--line);}
   .cpt-top{display:flex;align-items:center;justify-content:space-between;gap:12px;}
   .cpt-name{font-size:13.5px;flex:1;}
+  .cpt-acum{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.3px;flex-shrink:0;}
+  .cpt-add{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .input-wrap.add{flex:1;width:auto;}
+  .add-btn{width:44px;height:40px;border:none;border-radius:9px;color:#0d1017;font-size:22px;font-weight:700;line-height:1;flex-shrink:0;display:grid;place-items:center;font-family:var(--display);}
+  .add-btn:active{transform:scale(.94);}
   .cpt-bar{display:flex;align-items:center;gap:8px;margin-top:8px;}
   .cpt-bud{font-size:11px;font-family:var(--mono);color:var(--dim);white-space:nowrap;flex-shrink:0;}
   .ahorro-mes{background:var(--panel2);border-radius:12px;padding:14px;margin-top:12px;}
@@ -444,27 +449,30 @@ function vistaGastos(){
     <section class="card">
       <div class="card-title">Conceptos variables y extras</div>
       <div style="margin-top:10px">
-        ${CONCEPTOS[a].map(([c,bc])=>{
-          const k = key(state.mes,a,c);
-          const val = state.gastos[k] ?? "";
-          const g = num(val);
+        ${CONCEPTOS[a].map(([c,bc],i)=>{
+          const g = getGasto(state.mes,a,c);
           const pct = bc? Math.min(g/bc*100,100) : (g>0?100:0);
           const over = bc>0 && g>bc;
-          const consumeCap = bc>0 ? Math.max(0,g-bc) : g; // lo que va contra caprichos
+          const consumeCap = bc>0 ? Math.max(0,g-bc) : g;
           let nota;
           if(bc>0){
             nota = `${eur(g)} / ${eur(bc)}` + (over?` · +${eur(consumeCap)} caprichos`:"");
           } else {
             nota = g>0 ? `${eur(g)} · caprichos` : "va a caprichos";
           }
+          const inputId = `in_${a}_${i}`;
           return `<div class="cpt">
             <div class="cpt-top">
               <span class="cpt-name">${c}</span>
-              <div class="input-wrap">
-                <input type="text" inputmode="decimal" placeholder="0" value="${val}"
-                  oninput="onGasto('${a}','${c.replace(/'/g,"\\'")}',this.value)" />
+              <span class="cpt-acum" style="color:${g>0?(over?'#ff6b6b':col):'var(--dim)'}">${eur(g)}</span>
+            </div>
+            <div class="cpt-add">
+              <div class="input-wrap add">
+                <input id="${inputId}" type="text" inputmode="decimal" placeholder="+ añadir"
+                  onkeydown="onKeyGasto(event,'${a}','${c.replace(/'/g,"\\'")}','${inputId}')" />
                 <span class="input-eur">€</span>
               </div>
+              <button class="add-btn" style="background:${col}" onclick="anadirGasto('${a}','${c.replace(/'/g,"\\'")}','${inputId}')">+</button>
             </div>
             <div class="cpt-bar">
               <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':(bc>0?col:'var(--accent)')}"></div></div>
@@ -498,36 +506,42 @@ function bloqueCaprichos(persona, col){
     </div>
     <div class="prog-outer"><div class="prog-inner" style="width:${pct}%;background:${over?'#ff6b6b':col}"></div></div>
     ${desdeConceptos>0?`<div class="aho-desv" style="border-top:none;margin-top:8px;padding-top:0"><span>De conceptos sin budget / excesos</span><b>${eur(desdeConceptos)}</b></div>`:""}
-    <label class="input-row" style="${desdeConceptos>0?'':'border-top:none;'}margin-top:8px">
-      <span class="input-label">Otros caprichos (directo)</span>
-      <div class="input-wrap">
-        <input type="text" inputmode="decimal" placeholder="0" value="${val}"
-          oninput="onGasto('CAP_${persona}','Caprichos',this.value)" />
-        <span class="input-eur">€</span>
+    <div class="cpt" style="border-top:1px solid var(--line);margin-top:8px">
+      <div class="cpt-top">
+        <span class="cpt-name">Otros caprichos (directo)</span>
+        <span class="cpt-acum" style="color:${manual>0?col:'var(--dim)'}">${eur(manual)}</span>
       </div>
-    </label>
+      <div class="cpt-add">
+        <div class="input-wrap add">
+          <input id="in_capman_${persona}" type="text" inputmode="decimal" placeholder="+ añadir"
+            onkeydown="onKeyGasto(event,'CAP_${persona}','Caprichos','in_capman_${persona}')" />
+          <span class="input-eur">€</span>
+        </div>
+        <button class="add-btn" style="background:${col}" onclick="anadirGasto('CAP_${persona}','Caprichos','in_capman_${persona}')">+</button>
+      </div>
+    </div>
   </section>`;
 }
 
-// Un destino de ahorro: objetivo + campo para meter lo real + barra
+// Un destino de ahorro: objetivo + acumulado + botón para sumar
 function destinoAhorro(persona, idx, label, objetivo, col){
   const concepto = idx===0 ? "Openbank" : "Segundo";
-  const k = key(state.mes, "AHO_"+persona, concepto);
-  const val = state.gastos[k] ?? "";
-  const real = num(val);
+  const real = getGasto(state.mes, "AHO_"+persona, concepto);
   const pct = objetivo ? Math.min(real/objetivo*100,100) : (real>0?100:0);
-  return `<div style="margin-top:12px">
+  const inputId = `in_aho_${persona}_${idx}`;
+  return `<div style="margin-top:14px">
     <div class="rep-row" style="margin-bottom:6px">
       <span>${label}</span>
-      <span style="color:var(--dim)">obj. ${eur(objetivo)}</span>
+      <span style="color:var(--dim)">${eur(real)} / obj. ${eur(objetivo)}</span>
     </div>
-    <div class="cpt-bar" style="margin-top:0">
-      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col};${idx===1?'opacity:.6':''}"></div></div>
-      <div class="input-wrap" style="width:104px">
-        <input type="text" inputmode="decimal" placeholder="0" value="${val}"
-          oninput="onGasto('AHO_${persona}','${concepto}',this.value)" />
+    <div class="bar-track" style="margin-bottom:8px"><div class="bar-fill" style="width:${pct}%;background:${col};${idx===1?'opacity:.6':''}"></div></div>
+    <div class="cpt-add">
+      <div class="input-wrap add">
+        <input id="${inputId}" type="text" inputmode="decimal" placeholder="+ añadir"
+          onkeydown="onKeyGasto(event,'AHO_${persona}','${concepto}','${inputId}')" />
         <span class="input-eur">€</span>
       </div>
+      <button class="add-btn" style="background:${col}" onclick="anadirGasto('AHO_${persona}','${concepto}','${inputId}')">+</button>
     </div>
   </div>`;
 }
@@ -615,6 +629,23 @@ function cambiarMes(d){ state.mes = (state.mes + d + 12) % 12; render(); }
 function setTab(t){ state.tab = t; render(); }
 function setAmbito(a){ state.ambito = a; render(); }
 function onGasto(ambito, concepto, val){ guardarGasto(state.mes, ambito, concepto, val); }
+
+// Suma un nuevo importe al acumulado de una partida y limpia el campo
+function anadirGasto(ambito, concepto, inputId){
+  const el = document.getElementById(inputId);
+  if(!el) return;
+  const nuevo = num(el.value);
+  if(!nuevo){ el.value=""; return; }
+  const actual = getGasto(state.mes, ambito, concepto);
+  const total = Math.round((actual + nuevo) * 100) / 100;
+  guardarGasto(state.mes, ambito, concepto, total);
+  el.value = "";
+  render();
+}
+// Permite sumar también con Enter
+function onKeyGasto(e, ambito, concepto, inputId){
+  if(e.key === "Enter"){ e.preventDefault(); anadirGasto(ambito, concepto, inputId); }
+}
 
 function guardarSetup(){
   const url = document.getElementById("su-url").value.trim();
