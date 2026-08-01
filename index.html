@@ -99,6 +99,7 @@
   .ahorro-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
   .rep-row{display:flex;justify-content:space-between;font-size:12.5px;font-family:var(--mono);}
   .rep-row b{font-weight:700;}
+  .aho-desv{display:flex;justify-content:space-between;font-size:12px;font-family:var(--mono);margin-top:12px;padding-top:10px;border-top:1px solid var(--line);}
   .setup{padding:30px 22px;}
   .setup h2{font-family:var(--display);font-size:22px;margin:0 0 8px;}
   .setup p{font-size:14px;color:var(--dim);line-height:1.6;}
@@ -218,8 +219,19 @@ const getGasto = (mes, ambito, concepto) => num(state.gastos[key(mes,ambito,conc
 function totalAmbito(mes, ambito){
   return CONCEPTO_KEYS(ambito).reduce((t,c)=>t+getGasto(mes,ambito,c),0);
 }
-// gasto de caprichos (se guarda como ámbito "CAPRICHOS_KSR"/"CAPRICHOS_JTR", concepto "capricho")
-function gastoCaprichos(mes, persona){ return getGasto(mes, "CAP_"+persona, "Caprichos"); }
+// Consumo de "caprichos" derivado de los conceptos:
+//  - concepto sin budget (budget 0): todo el gasto consume caprichos
+//  - concepto con budget: solo el EXCESO sobre su budget consume caprichos
+function consumoDesdeConceptos(mes, persona){
+  return CONCEPTOS[persona].reduce((t,[c,bud])=>{
+    const g = getGasto(mes,persona,c);
+    return t + (bud>0 ? Math.max(0, g-bud) : g);
+  },0);
+}
+// Gasto de caprichos manual directo (bloque "gasto en caprichos")
+function gastoCaprichosManual(mes, persona){ return getGasto(mes, "CAP_"+persona, "Caprichos"); }
+// Total consumido de caprichos = manual + derivado de conceptos
+function gastoCaprichos(mes, persona){ return gastoCaprichosManual(mes,persona) + consumoDesdeConceptos(mes,persona); }
 
 // ══════════════════════════════════════════════════════════════════════════
 //  RED
@@ -431,6 +443,13 @@ function vistaGastos(){
           const g = num(val);
           const pct = bc? Math.min(g/bc*100,100) : (g>0?100:0);
           const over = bc>0 && g>bc;
+          const consumeCap = bc>0 ? Math.max(0,g-bc) : g; // lo que va contra caprichos
+          let nota;
+          if(bc>0){
+            nota = `${eur(g)} / ${eur(bc)}` + (over?` · +${eur(consumeCap)} caprichos`:"");
+          } else {
+            nota = g>0 ? `${eur(g)} · caprichos` : "va a caprichos";
+          }
           return `<div class="cpt">
             <div class="cpt-top">
               <span class="cpt-name">${c}</span>
@@ -441,8 +460,8 @@ function vistaGastos(){
               </div>
             </div>
             <div class="cpt-bar">
-              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':col}"></div></div>
-              <span class="cpt-bud">${bc>0?`${eur(g)} / ${eur(bc)}`:(g>0?eur(g):'sin budget')}</span>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':(bc>0?col:'var(--accent)')}"></div></div>
+              <span class="cpt-bud">${nota}</span>
             </div>
           </div>`;
         }).join("")}
@@ -457,7 +476,9 @@ function vistaGastos(){
 
 function bloqueCaprichos(persona, col){
   const limite = CAPRICHOS[persona][state.mes] || 0;
-  const g = gastoCaprichos(state.mes, persona);
+  const desdeConceptos = consumoDesdeConceptos(state.mes, persona);
+  const manual = gastoCaprichosManual(state.mes, persona);
+  const g = desdeConceptos + manual;
   const restante = limite - g;
   const pct = limite? Math.min(g/limite*100,100) : 0;
   const over = g>limite;
@@ -467,12 +488,13 @@ function bloqueCaprichos(persona, col){
     <div class="card-title">Caprichos del mes · lo libre para gastar</div>
     <div class="kpi-row">
       <div class="kpi"><span class="kpi-l">Límite</span><span class="kpi-v">${eur(limite)}</span></div>
-      <div class="kpi"><span class="kpi-l">Gastado</span><span class="kpi-v" style="color:${col}">${eur(g)}</span></div>
+      <div class="kpi"><span class="kpi-l">Consumido</span><span class="kpi-v" style="color:${col}">${eur(g)}</span></div>
       <div class="kpi"><span class="kpi-l">${restante>=0?'Queda':'Excedido'}</span><span class="kpi-v" style="color:${restante<0?'#ff6b6b':'var(--ksr)'}">${eur(Math.abs(restante))}</span></div>
     </div>
     <div class="prog-outer"><div class="prog-inner" style="width:${pct}%;background:${over?'#ff6b6b':col}"></div></div>
-    <label class="input-row" style="border-top:none;margin-top:8px">
-      <span class="input-label">Gasto en caprichos</span>
+    ${desdeConceptos>0?`<div class="aho-desv" style="border-top:none;margin-top:8px;padding-top:0"><span>De conceptos sin budget / excesos</span><b>${eur(desdeConceptos)}</b></div>`:""}
+    <label class="input-row" style="${desdeConceptos>0?'':'border-top:none;'}margin-top:8px">
+      <span class="input-label">Otros caprichos (directo)</span>
       <div class="input-wrap">
         <input type="text" inputmode="decimal" placeholder="0" value="${val}"
           oninput="onGasto('CAP_${persona}','Caprichos',this.value)" />
@@ -482,12 +504,47 @@ function bloqueCaprichos(persona, col){
   </section>`;
 }
 
+// Un destino de ahorro: objetivo + campo para meter lo real + barra
+function destinoAhorro(persona, idx, label, objetivo, col){
+  const concepto = idx===0 ? "Openbank" : "Segundo";
+  const k = key(state.mes, "AHO_"+persona, concepto);
+  const val = state.gastos[k] ?? "";
+  const real = num(val);
+  const pct = objetivo ? Math.min(real/objetivo*100,100) : (real>0?100:0);
+  return `<div style="margin-top:12px">
+    <div class="rep-row" style="margin-bottom:6px">
+      <span>${label}</span>
+      <span style="color:var(--dim)">obj. ${eur(objetivo)}</span>
+    </div>
+    <div class="cpt-bar" style="margin-top:0">
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col};${idx===1?'opacity:.6':''}"></div></div>
+      <div class="input-wrap" style="width:104px">
+        <input type="text" inputmode="decimal" placeholder="0" value="${val}"
+          oninput="onGasto('AHO_${persona}','${concepto}',this.value)" />
+        <span class="input-eur">€</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Resumen de desviación total del ahorro real vs objetivo del mes
+function resumenDesviacionAhorro(persona, par, col){
+  const objetivo = par[0]+par[1];
+  const real = getGasto(state.mes,"AHO_"+persona,"Openbank") + getGasto(state.mes,"AHO_"+persona,"Segundo");
+  const desv = real - objetivo;
+  if(real===0) return "";
+  return `<div class="aho-desv">
+    <span>Metido ${eur(real)}</span>
+    <span style="color:${desv<0?'#ff6b6b':'var(--ksr)'}">${desv>=0?'+':''}${eur(desv)} vs objetivo</span>
+  </div>`;
+}
+
 function vistaAhorro(){
   return `<div class="stack">
     <!-- Ahorro del mes: qué mete cada uno y a dónde -->
     <section class="card">
       <div class="card-title">Ahorro a enviar este mes · ${MESES[state.mes]}</div>
-      <p class="note">Lo que tiene que meter cada uno y su reparto por cuentas (70% principal · 30% segundo destino).</p>
+      <p class="note">Objetivo de cada destino y lo que metéis de verdad, con la desviación. Openbank (70%) y el segundo destino (30%).</p>
       ${["KSR","JTR"].map(p=>{
         const col = p==="KSR"?"var(--ksr)":"var(--jtr)";
         const rep = AHORRO_REPARTO[p];
@@ -501,12 +558,14 @@ function vistaAhorro(){
         return `<div class="ahorro-mes">
           <div class="ahorro-head">
             <span class="pat-name" style="color:${col}">${p}</span>
-            <b style="font-family:var(--display);font-size:19px">${eur(total)}</b>
+            <div style="text-align:right">
+              <b style="font-family:var(--display);font-size:19px">${eur(total)}</b>
+              <div style="font-size:10.5px;color:var(--dim);font-family:var(--mono)">objetivo del mes</div>
+            </div>
           </div>
-          <div class="rep-row"><span>${rep.label1}</span><b>${eur(par[0])}</b></div>
-          <div class="bar-track" style="margin:4px 0 10px"><div class="bar-fill" style="width:${total?par[0]/total*100:0}%;background:${col}"></div></div>
-          <div class="rep-row"><span>${rep.label2}</span><b>${eur(par[1])}</b></div>
-          <div class="bar-track" style="margin-top:4px"><div class="bar-fill" style="width:${total?par[1]/total*100:0}%;background:${col};opacity:.55"></div></div>
+          ${destinoAhorro(p, 0, rep.label1, par[0], col)}
+          ${destinoAhorro(p, 1, rep.label2, par[1], col)}
+          ${resumenDesviacionAhorro(p, par, col)}
         </div>`;
       }).join("")}
     </section>
